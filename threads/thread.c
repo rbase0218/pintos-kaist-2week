@@ -44,12 +44,15 @@ static struct lock tid_lock;
 static struct list destruction_req;
 
 /* Statistics. */
+// Tick 시간들
 static long long idle_ticks;   /* # of timer ticks spent idle. */
 static long long kernel_ticks; /* # of timer ticks in kernel threads. */
 static long long user_ticks;   /* # of timer ticks in user programs. */
 
 /* Scheduling. */
+// Time Slice -> 2의 배수.
 #define TIME_SLICE 4		  /* # of timer ticks to give each thread. */
+// 스레드 실행 시간
 static unsigned thread_ticks; /* # of timer ticks since last yield. */
 
 /* If false (default), use round-robin scheduler.
@@ -74,6 +77,7 @@ static tid_t allocate_tid(void);
  * down to the start of a page.  Since `struct thread' is
  * always at the beginning of a page and the stack pointer is
  * somewhere in the middle, this locates the curent thread. */
+// 실행중인 스레드를 찾는게 아닌가
 #define running_thread() ((struct thread *)(pg_round_down(rrsp())))
 
 // Global descriptor table for the thread_start.
@@ -123,6 +127,7 @@ void thread_init(void)
 
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
+// 스레드 시작 시, 발생하는 함수. 
 void thread_start(void)
 {
 	/* Create the idle thread. */
@@ -139,6 +144,8 @@ void thread_start(void)
 
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
+// 타이머 인터럽트 발생 시, 실행
+// 정기적으로 실행된다는 소리고 외부 인터럽트 컨텍스트에서 실행된다.
 void thread_tick(void)
 {
 	struct thread *t = thread_current();
@@ -220,6 +227,8 @@ tid_t thread_create(const char *name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
+// 현재 Thread를 Block하는 함수인듯?
+// 깨우는건 내가 구현해야하나?
 void thread_block(void)
 {
 	ASSERT(!intr_context());
@@ -236,6 +245,7 @@ void thread_block(void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+// 변수 t를 깨우고 ready_list에 추가한다 -> 다시 깨우는거네
 void thread_unblock(struct thread *t)
 {
 	enum intr_level old_level;
@@ -319,12 +329,14 @@ void thread_yield(void)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+// 우선 순위 설정
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
 }
 
 /* Returns the current thread's priority. */
+// 가져오기
 int thread_get_priority(void)
 {
 	return thread_current()->priority;
@@ -609,17 +621,71 @@ allocate_tid(void)
 	return tid;
 }
 
+bool compare_sleep_list(const struct list_elem *a, const struct list_elem *b, void* check UNUSED)
+{
+	struct thread *thread_a = list_entry(a, struct thread, elem);
+	struct thread *thread_b = list_entry(b, struct thread, elem);
+   	return thread_a->wakeup_tick < thread_b->wakeup_tick;
+}
+
 void thread_sleep(int64_t tick)
 {
+	// [생각]
+	// 인터럽트 Disable을 해준다.
+	// 현재 Thread에 Tick Time만큼 지정해준다.
+	// 지정한 친구는 Sleep List로 넣어준다.
+	// 인터럽트를 재발생 시킨다.
+	// AI 도움 -> Insert를 Insert_Ordered로 써보라.
 
+	// [구현]
+	enum intr_level intr_lv = intr_disable();
+	struct thread* current_thread = thread_current();
+
+	current_thread->wakeup_tick = tick;
+	list_insert_ordered(&sleep_list, &current_thread->elem, compare_sleep_list, NULL);
+	thread_block();
+
+	intr_set_level(intr_lv);
 }
 
-void thread_awakeup(int64_t tick)
+// 순회 사용 방법
+/*
+ * for (e = list_begin (&foo_list); e != list_end (&foo_list);
+ * e = list_next (e)) {
+ *   struct foo *f = list_entry (e, struct foo, elem);
+ *   ...do something with f...
+ * }
+*/
+
+void thread_wakeup(int64_t tick)
 {
+	// [생각]
+	// 1. 인터럽트를 중지한다
+	// 2. WakeUp < Tick에 해당하는 Thread 깨우기
+	// 3. 만약 Wakeup > Tick이면 중지
+	// 4. 인터럽트 재시작
+	// [순회를 어떻게 하는가?]
+	// list_entry 활용하기
 
+	// [구현]
+	enum intr_level intr_lv = intr_disable();
+
+	struct list_elem *iter;
+	struct thread* current_thread;
+
+	for(iter = list_begin(&sleep_list); iter != list_end(&sleep_list);)
+	{
+		current_thread = list_entry(iter, struct thread, elem);
+
+		if(current_thread->wakeup_tick <= tick)
+		{
+			iter = list_remove(&current_thread->elem);
+			thread_unblock(current_thread);
+		}
+		else
+			break;
+	}
+
+	intr_set_level(intr_lv);
 }
 
-bool compare_sleep_list(const struct list_elem *a, const struct list_elem *b, void* check)
-{
-
-}

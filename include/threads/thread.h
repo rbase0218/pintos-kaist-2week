@@ -148,6 +148,7 @@ void do_iret (struct intr_frame *tf);
 
 void thread_sleep(int64_t);
 void thread_wakeup(int64_t);
-bool compare_sleep_list(const struct list_elem, const struct list_elem, void*);
+bool compare_sleep_list(const struct list_elem*, const struct list_elem*, void*);
+
 
 #endif /* threads/thread.h */

@@ -100,8 +100,12 @@ void timer_sleep(int64_t ticks)
 
 	ASSERT(intr_get_level() == INTR_ON);
 
+	// 현재 시간보다 ticks이 더 크다
+	// 지정된 시간이 미래일 때.
 	if(timer_elapsed(start < ticks))
+		// 현재 시간에서 ticks까지 재워.
 		thread_sleep(start + ticks);
+
 	// // start 이후, 경과한 시간이 ticks보다 더 적다면
 	// while (timer_elapsed(start) < ticks)
 	// 	// 스레드는 현재 CPU를 양보한다.
@@ -138,6 +142,7 @@ timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
 	thread_tick(); // 사용중인 프로세스를 위해 CPU의 사용 횟수를 업데이트?
+	thread_wakeup(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
