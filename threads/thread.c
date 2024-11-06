@@ -630,14 +630,6 @@ bool compare_sleep_list(const struct list_elem *a, const struct list_elem *b, vo
 
 void thread_sleep(int64_t tick)
 {
-	// [생각]
-	// 인터럽트 Disable을 해준다.
-	// 현재 Thread에 Tick Time만큼 지정해준다.
-	// 지정한 친구는 Sleep List로 넣어준다.
-	// 인터럽트를 재발생 시킨다.
-	// AI 도움 -> Insert를 Insert_Ordered로 써보라.
-
-	// [구현]
 	enum intr_level intr_lv = intr_disable();
 	struct thread* current_thread = thread_current();
 
@@ -659,15 +651,6 @@ void thread_sleep(int64_t tick)
 
 void thread_wakeup(int64_t tick)
 {
-	// [생각]
-	// 1. 인터럽트를 중지한다
-	// 2. WakeUp < Tick에 해당하는 Thread 깨우기
-	// 3. 만약 Wakeup > Tick이면 중지
-	// 4. 인터럽트 재시작
-	// [순회를 어떻게 하는가?]
-	// list_entry 활용하기
-
-	// [구현]
 	enum intr_level intr_lv = intr_disable();
 
 	struct list_elem *iter;
@@ -689,3 +672,12 @@ void thread_wakeup(int64_t tick)
 	intr_set_level(intr_lv);
 }
 
+bool compare_priority(const struct list_elem* a, const struct list_elem* b, void* check UNUSED)
+{
+	
+}
+
+void check_preempt()
+{
+
+}
