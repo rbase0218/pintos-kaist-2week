@@ -189,12 +189,21 @@ sema_test_helper(void *sema_)
    acquire and release it.  When these restrictions prove
    onerous, it's a good sign that a semaphore should be used,
    instead of a lock. */
+/* LOCK을 초기화합니다. 락은 특정 시점에 최대 하나의 스레드만이 보유할 수 
+   있습니다. 우리의 락은 "재귀적"이지 않습니다. 즉, 현재 락을 보유하고 있는 
+   스레드가 같은 락을 다시 획득하려고 하는 것은 오류입니다.
+
+   락은 초기값이 1인 세마포어의 특수한 형태입니다. 락과 세마포어의 차이점은 
+   두 가지입니다. 첫째, 세마포어는 1보다 큰 값을 가질 수 있지만, 락은 한 번에 
+   하나의 스레드만이 소유할 수 있습니다. 둘째, 세마포어는 소유자가 없어서 
+   한 스레드가 세마포어를 "down"하고 다른 스레드가 "up"할 수 있지만, 락은 
+   동일한 스레드가 획득과 해제를 모두 수행해야 합니다. 이러한 제약이 부담스러울 
+   때는 락 대신 세마포어를 사용하는 것이 좋은 신호입니다. */
 void lock_init(struct lock *lock)
 {
-	ASSERT(lock != NULL);
-
-	lock->holder = NULL;
-	sema_init(&lock->semaphore, 1);
+    ASSERT(lock != NULL);
+    lock->holder = NULL;
+    sema_init(&lock->semaphore, 1);
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -205,14 +214,19 @@ void lock_init(struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+/* LOCK을 획득하며, 필요한 경우 사용 가능해질 때까지 대기합니다. 
+   현재 스레드가 이미 락을 보유하고 있으면 안 됩니다.
+
+   이 함수는 대기 상태에 들어갈 수 있으므로 인터럽트 핸들러 내에서 
+   호출되어서는 안 됩니다. 인터럽트가 비활성화된 상태에서 이 함수를 
+   호출할 수 있지만, 대기가 필요한 경우 인터럽트가 다시 활성화됩니다. */
 void lock_acquire(struct lock *lock)
 {
-	ASSERT(lock != NULL);
-	ASSERT(!intr_context());
-	ASSERT(!lock_held_by_current_thread(lock));
-
-	sema_down(&lock->semaphore);
-	lock->holder = thread_current();
+    ASSERT(lock != NULL);
+    ASSERT(!intr_context());
+    ASSERT(!lock_held_by_current_thread(lock));
+    sema_down(&lock->semaphore);
+    lock->holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -221,17 +235,20 @@ void lock_acquire(struct lock *lock)
 
    This function will not sleep, so it may be called within an
    interrupt handler. */
+/* LOCK의 획득을 시도하고 성공하면 true를, 실패하면 false를 반환합니다. 
+   현재 스레드가 이미 락을 보유하고 있으면 안 됩니다.
+
+   이 함수는 대기 상태에 들어가지 않으므로 인터럽트 핸들러 내에서 
+   호출될 수 있습니다. */
 bool lock_try_acquire(struct lock *lock)
 {
-	bool success;
-
-	ASSERT(lock != NULL);
-	ASSERT(!lock_held_by_current_thread(lock));
-
-	success = sema_try_down(&lock->semaphore);
-	if (success)
-		lock->holder = thread_current();
-	return success;
+    bool success;
+    ASSERT(lock != NULL);
+    ASSERT(!lock_held_by_current_thread(lock));
+    success = sema_try_down(&lock->semaphore);
+    if (success)
+        lock->holder = thread_current();
+    return success;
 }
 
 /* Releases LOCK, which must be owned by the current thread.
@@ -240,40 +257,49 @@ bool lock_try_acquire(struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
+/* 현재 스레드가 소유한 LOCK을 해제합니다.
+   이것이 lock_release 함수입니다.
+
+   인터럽트 핸들러는 락을 획득할 수 없으므로, 인터럽트 핸들러 내에서 
+   락을 해제하려고 하는 것은 의미가 없습니다. */
 void lock_release(struct lock *lock)
 {
-	ASSERT(lock != NULL);
-	ASSERT(lock_held_by_current_thread(lock));
-
-	lock->holder = NULL;
-	sema_up(&lock->semaphore);
+    ASSERT(lock != NULL);
+    ASSERT(lock_held_by_current_thread(lock));
+    lock->holder = NULL;
+    sema_up(&lock->semaphore);
 }
 
 /* Returns true if the current thread holds LOCK, false
    otherwise.  (Note that testing whether some other thread holds
    a lock would be racy.) */
+/* 현재 스레드가 LOCK을 보유하고 있다면 true를, 그렇지 않으면 false를 
+   반환합니다. (다른 스레드가 락을 보유하고 있는지 테스트하는 것은 
+   경쟁 상태를 유발할 수 있다는 점에 주의하세요.) */
 bool lock_held_by_current_thread(const struct lock *lock)
 {
-	ASSERT(lock != NULL);
-
-	return lock->holder == thread_current();
+    ASSERT(lock != NULL);
+    return lock->holder == thread_current();
 }
 
 /* One semaphore in a list. */
+/* 리스트 내의 하나의 세마포어입니다. */
 struct semaphore_elem
 {
-	struct list_elem elem;		/* List element. */
-	struct semaphore semaphore; /* This semaphore. */
+    struct list_elem elem;       /* List element. */  /* 리스트 요소입니다. */
+    struct semaphore semaphore; /* This semaphore. */ /* 이 세마포어입니다. */
 };
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
    code to receive the signal and act upon it. */
+/* 조건 변수 COND를 초기화합니다. 조건 변수는 한 코드가 조건을 
+   신호로 보내고 협력하는 코드가 그 신호를 받아 이에 따라 
+   행동할 수 있게 합니다. */
 void cond_init(struct condition *cond)
 {
-	ASSERT(cond != NULL);
-
-	list_init(&cond->waiters);
+    ASSERT(cond != NULL);
+    list_init(&cond->waiters);
 }
 
 /* Atomically releases LOCK and waits for COND to be signaled by
