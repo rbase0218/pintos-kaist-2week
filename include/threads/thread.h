@@ -92,8 +92,17 @@ struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 
-	// Wakeup 시점을 가지기 위한 Tick 추가
+	// For Sleep/Wakeup
 	int64_t wakeup_tick;
+
+	// For Prioirty Scheduling
+	int origin_priority;			// 원래 우선 순위를 저장하기 위한 값
+	struct list_elem donor_elem;	// donors에 들어가기 위한 elem
+									// 왜 2개의 Element가 필요한가? -> 해당 값에서 Prev/Next를 저장한다.
+									// 이때, 1개의 Element당 1개의 Prev/Next만을 저장할 수 있기 때문에.
+									// Ready_list or Sleep_list에 들어가지지 않는다.
+	struct lock *wait_target_lock;	// 기다리고 있는 Lock에 대한 정보를 가진다.
+	struct list donors;				// 기부자 목록
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */

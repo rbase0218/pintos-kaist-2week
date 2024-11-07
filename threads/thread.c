@@ -336,6 +336,8 @@ void thread_yield(void)
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
+	
+	refresh_donation_priority();
 	check_preempt();
 }
 

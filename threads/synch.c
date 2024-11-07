@@ -222,11 +222,71 @@ void lock_init(struct lock *lock)
    호출할 수 있지만, 대기가 필요한 경우 인터럽트가 다시 활성화됩니다. */
 void lock_acquire(struct lock *lock)
 {
+	// Execpt Handler -> PASS
     ASSERT(lock != NULL);
     ASSERT(!intr_context());
     ASSERT(!lock_held_by_current_thread(lock));
+
+	// [생각]
+	// - 흭득하려는 Lock의 Handler에 이미 누군가 존재한다. -> Lock이 다른 스레드에서 보유되고 있다.
+	// - 다음의 로직을 실행한다.
+	// 	1. Current Thread가 기다리는 Lock 추가하기
+	//  2. Handler의 기부자 목록에 현재 Thread 추가하기
+	//  3. Handler의 Priority에게 Donation하기
+	//   *해당 함수가 실행된다는 것은 현재 Thread보다 더 높은 우선순위를 보유했다는 것.
+	//   *기부자 목록의 Front에 추가한다.
+	// - 존재하지 않는다면, Wait_For_lock을 해제한다. -> 이전에 기다리는 것이 있었을 수 있음.
+
+	struct thread* curr_thread = thread_current();
+	if(lock->holder != NULL)
+	{
+		curr_thread->wait_target_lock = lock;
+		list_push_front(&lock->holder->donors, &curr_thread->donor_elem);
+		// list_insert_ordered(&lock->holder->donors, &curr_thread->donor_elem, compare_priority_donation, NULL);
+		donation_priority();
+
+		// Return을 하지 않는 이유
+		// - sema_down 함수에서 Value가 0일때 처리가 되어있기 때문.
+	}
+
+	// Sema_Down에서 Value가 0이면, 현재 Thread를 Block으로 처리한다.
     sema_down(&lock->semaphore);
-    lock->holder = thread_current();
+	curr_thread->wait_target_lock = NULL;
+    lock->holder = curr_thread;
+}
+
+void donation_priority()
+{
+	// [생각]
+	// - 우선순위를 lock이 없는 친구가 나올 때 까지 전달한다.
+	// - 현재 내가 원하는 lock이 실행 중이 아닐 수 있다. 다른 Lock에 걸린 Holder가 쥐고 있을 수 있음.
+	// * 해당 함수는 Wait에 들어가는 친구를 기준으로 사용할 수 있다.
+	struct thread* curr_thread = thread_current();
+	struct thread* holder = curr_thread->wait_target_lock->holder;
+
+	while(holder != NULL)
+	{
+		// 우선순위 Holder에게 할당.
+		holder->priority = curr_thread->priority;
+
+		if(holder->wait_target_lock == NULL)
+			holder = NULL;
+		else
+			holder = holder->wait_target_lock->holder;
+	}	
+}
+
+void refresh_donation_priority()
+{
+	struct thread* curr_thread = thread_current();
+	curr_thread->priority = curr_thread->origin_priority;
+
+	if(!list_empty(&curr_thread->donors))
+	{
+		struct thread* max = list_entry(list_front(&curr_thread->donors), struct thread, donor_elem);
+		if(max->priority > curr_thread->priority)
+			curr_thread->priority = max->priority;
+	}
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -264,8 +324,25 @@ bool lock_try_acquire(struct lock *lock)
    락을 해제하려고 하는 것은 의미가 없습니다. */
 void lock_release(struct lock *lock)
 {
+	// Except Handler -> PASS
     ASSERT(lock != NULL);
     ASSERT(lock_held_by_current_thread(lock));
+
+	// [생각]
+	// *우선순위를 할당 받은 Thread가 Lock을 반환할 수 있기 때문에 이를 확인해야 한다.
+	// *donors 목록을 순회하면서 찾고 있는 Lock이 반환 받은 Lock과 동일한 Element를 탐색한다.
+	// *해당 목록을 List에서 제거한다.
+	struct list_elem *e;
+	struct thread* curr_thread = thread_current();
+    
+    for (e = list_begin(&curr_thread->donors); e != list_end(&curr_thread->donors); e = list_next(e))
+    {
+        struct thread *donor = list_entry(e, struct thread, donor_elem);
+		if(donor->wait_target_lock == lock)
+			list_remove(&donor->donor_elem);
+    }
+	refresh_donation_priority();
+
     lock->holder = NULL;
     sema_up(&lock->semaphore);
 }
@@ -397,4 +474,11 @@ void cond_broadcast(struct condition *cond, struct lock *lock)
 
 	while (!list_empty(&cond->waiters))
 		cond_signal(cond, lock);
+}
+
+bool compare_priority_donation(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED)
+{
+	struct thread *el_a = list_entry(a, struct thread, donor_elem);
+	struct thread *el_b = list_entry(b, struct thread, donor_elem);
+	return el_a->priority > el_b->priority;
 }

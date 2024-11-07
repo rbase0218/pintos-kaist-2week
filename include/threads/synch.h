@@ -39,6 +39,10 @@ void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
 bool compare_priority_sema(const struct list_elem*, const struct list_elem*, void*);
+bool compare_priority_donation(const struct list_elem*, const struct list_elem*, void*);
+void donation_priority(void);
+
+void refresh_donation_priority(void);
 
 /* Optimization barrier.
  *
