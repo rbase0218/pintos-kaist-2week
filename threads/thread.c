@@ -335,7 +335,7 @@ void thread_yield(void)
 // 우선 순위 설정
 void thread_set_priority(int new_priority)
 {
-	thread_current()->priority = new_priority;
+	thread_current()->origin_priority = new_priority;
 	
 	refresh_donation_priority();
 	check_preempt();

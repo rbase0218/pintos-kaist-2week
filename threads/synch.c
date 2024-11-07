@@ -128,8 +128,11 @@ void sema_up(struct semaphore *sema)
 
 	old_level = intr_disable();
 	if (!list_empty(&sema->waiters))
+	{
+		list_sort(&sema->waiters, compare_priority, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 								  struct thread, elem));
+	}
 	sema->value++;
 	check_preempt();
 	intr_set_level(old_level);
@@ -332,15 +335,16 @@ void lock_release(struct lock *lock)
 	// *우선순위를 할당 받은 Thread가 Lock을 반환할 수 있기 때문에 이를 확인해야 한다.
 	// *donors 목록을 순회하면서 찾고 있는 Lock이 반환 받은 Lock과 동일한 Element를 탐색한다.
 	// *해당 목록을 List에서 제거한다.
-	struct list_elem *e;
-	struct thread* curr_thread = thread_current();
-    
-    for (e = list_begin(&curr_thread->donors); e != list_end(&curr_thread->donors); e = list_next(e))
-    {
-        struct thread *donor = list_entry(e, struct thread, donor_elem);
-		if(donor->wait_target_lock == lock)
-			list_remove(&donor->donor_elem);
-    }
+	struct thread *curr_thread = thread_current();
+	struct list_elem *e = list_begin(&curr_thread->donors);
+	while (e != list_end(&curr_thread->donors))
+	{
+		struct thread *donor = list_entry(e, struct thread, donor_elem);
+		if (donor->wait_target_lock == lock)
+			e = list_remove(e);
+		else
+			e = list_next(e);
+	}
 	refresh_donation_priority();
 
     lock->holder = NULL;
