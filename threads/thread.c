@@ -217,6 +217,7 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	check_preempt();
 
 	return tid;
 }
@@ -258,7 +259,6 @@ void thread_unblock(struct thread *t)
 	list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
 	t->status = THREAD_READY;
 
-	check_preempt();
 	intr_set_level(old_level);
 }
 
@@ -663,6 +663,8 @@ void thread_wakeup(int64_t tick)
 		{
 			iter = list_remove(&current_thread->elem);
 			thread_unblock(current_thread);
+			check_preempt();
+
 		}
 		else
 			break;
