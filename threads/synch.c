@@ -129,6 +129,7 @@ void sema_up(struct semaphore *sema)
 	old_level = intr_disable();
 	if (!list_empty(&sema->waiters))
 	{
+		// 우선순위 기부로 기존 List의 값이 깨질 가능성이 존재하기 때문.
 		list_sort(&sema->waiters, compare_priority, NULL);
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 								  struct thread, elem));
@@ -251,7 +252,6 @@ void lock_acquire(struct lock *lock)
 		// Return을 하지 않는 이유
 		// - sema_down 함수에서 Value가 0일때 처리가 되어있기 때문.
 	}
-
 	// Sema_Down에서 Value가 0이면, 현재 Thread를 Block으로 처리한다.
     sema_down(&lock->semaphore);
 	curr_thread->wait_target_lock = NULL;
@@ -453,6 +453,13 @@ bool compare_priority_sema(const struct list_elem* a, const struct list_elem* b,
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to signal a condition variable within an
    interrupt handler. */
+/* COND(LOCK으로 보호됨)에서 대기 중인 스레드가 있다면,
+  이 함수는 그 중 하나를 깨우기 위한 신호를 보냅니다.
+  이 함수를 호출하기 전에 반드시 LOCK을 보유하고 있어야 합니다.
+
+  인터럽트 핸들러는 락을 획득할 수 없기 때문에,
+  인터럽트 핸들러 내에서 condition variable에 신호를 보내는 것은 
+  의미가 없습니다. */
 void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 {
 	ASSERT(cond != NULL);
@@ -462,7 +469,8 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 
 	if (!list_empty(&cond->waiters))
 		list_sort(&cond->waiters, compare_priority_sema, NULL);
-		sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
+
+	sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -478,11 +486,4 @@ void cond_broadcast(struct condition *cond, struct lock *lock)
 
 	while (!list_empty(&cond->waiters))
 		cond_signal(cond, lock);
-}
-
-bool compare_priority_donation(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED)
-{
-	struct thread *el_a = list_entry(a, struct thread, donor_elem);
-	struct thread *el_b = list_entry(b, struct thread, donor_elem);
-	return el_a->priority > el_b->priority;
 }
