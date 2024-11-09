@@ -107,6 +107,10 @@ struct thread {
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
+	// For Advanced Scheduler
+	int nice_count;
+	int64_t recent_cpu;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
@@ -161,5 +165,7 @@ bool compare_sleep_list(const struct list_elem*, const struct list_elem*, void*)
 
 bool compare_priority(const struct list_elem*, const struct list_elem*, void*);
 void check_preempt();
+
+static int load_avg;
 
 #endif /* threads/thread.h */

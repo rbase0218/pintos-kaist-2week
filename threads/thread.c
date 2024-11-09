@@ -134,6 +134,7 @@ void thread_start(void)
 	struct semaphore idle_started;
 	sema_init(&idle_started, 0);
 	thread_create("idle", PRI_MIN, idle, &idle_started);
+	load_avg = 0;
 
 	/* Start preemptive thread scheduling. */
 	intr_enable();
@@ -444,6 +445,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->origin_priority = t->priority;
 	t->wait_target_lock = NULL;
 	list_init(&t->donors);
+	// For Advanced Scheduler
+	t->nice_count = 0;
+	t->recent_cpu = 0;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
