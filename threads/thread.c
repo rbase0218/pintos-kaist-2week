@@ -674,7 +674,6 @@ void thread_wakeup(int64_t tick)
 			iter = list_remove(&current_thread->elem);
 			thread_unblock(current_thread);
 			check_preempt();
-
 		}
 		else
 			break;
