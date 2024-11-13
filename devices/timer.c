@@ -84,7 +84,6 @@ timer_ticks(void)
 
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
-// Then 이후 경과한 타이머 수를 반환한다.
 int64_t
 timer_elapsed(int64_t then)
 {
@@ -92,24 +91,10 @@ timer_elapsed(int64_t then)
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
-// ticks 만큼 타이머 실행을 중지한다.
 void timer_sleep(int64_t ticks)
 {
-	// 현재 시간을 받아온다.
 	int64_t start = timer_ticks();
-
-	ASSERT(intr_get_level() == INTR_ON);
-
-	// 현재 시간보다 ticks이 더 크다
-	// 지정된 시간이 미래일 때.
-	if(timer_elapsed(start < ticks))
-		// 현재 시간에서 ticks까지 재워.
-		thread_sleep(start + ticks);
-
-	// // start 이후, 경과한 시간이 ticks보다 더 적다면
-	// while (timer_elapsed(start) < ticks)
-	// 	// 스레드는 현재 CPU를 양보한다.
-	// 	thread_yield();
+	thread_sleep(start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -141,8 +126,23 @@ static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
-	thread_tick(); // 사용중인 프로세스를 위해 CPU의 사용 횟수를 업데이트?
-	thread_wakeup(ticks);
+	thread_tick();
+
+	if (thread_mlfqs)
+	{
+		mlfqs_increment_recent_cpu();
+		if (ticks % 4 == 0)
+		{
+			mlfqs_recalculate_priority();
+			if (ticks % TIMER_FREQ == 0)
+			{
+				mlfqs_recalculate_recent_cpu();
+				mlfqs_calculate_load_avg();
+			}
+		}
+	}
+
+	thread_awake(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

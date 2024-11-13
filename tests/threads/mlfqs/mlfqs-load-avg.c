@@ -118,7 +118,7 @@
 
 static int64_t start_time;
 
-static void load_thread (void *seq_no);
+static void load_thread(void *seq_no);
 
 #define THREAD_CNT 60
 

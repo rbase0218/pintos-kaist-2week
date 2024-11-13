@@ -1,32 +1,61 @@
-/* Fixed point number format: 17.14 */
-#define F (1 << 14)     /* 2^14 = 16384 */
+#define F (1 << 14)
+#define INT_MAX ((1 << 31) - 1)
+#define INT_MIN (-(1 << 31))
 
-/* Convert n to fixed point: n * f */
-#define CONV_TO_FP(n) ((n) * F)
+int int_to_fp(int n)
+{
+    return n * F;
+}
 
-/* Convert x to integer (rounding toward zero): x / f */
-#define CONV_TO_INT(x) ((x) / F)
+int fp_to_int(int x)
+{
+    return x / F;
+}
 
-/* Convert x to integer (rounding to nearest) */
-#define CONV_TO_INT_ROUND(x) \
-    ((x) >= 0 ? ((x) + F / 2) / F : ((x) - F / 2) / F)
+int fp_to_int_round(int x)
+{
+    if (x >= 0)
+        return (x + F / 2) / F;
+    else
+        return (x - F / 2) / F;
+}
 
-/* Add x and y */
-#define FP_ADD(x, y) ((x) + (y))
-/* Add x and n */
-#define FP_ADD_INT(x, n) ((x) + (n) * F)
+int add_fp(int x, int y)
+{
+    return x + y;
+}
 
-/* Subtract y from x */
-#define FP_SUB(x, y) ((x) - (y))
-/* Subtract n from x */
-#define FP_SUB_INT(x, n) ((x) - (n) * F)
+int sub_fp(int x, int y)
+{
+    return x - y;
+}
 
-/* Multiply x by y */
-#define FP_MUL(x, y) ((int64_t)(x)) * (y) / F
-/* Multiply x by n */
-#define FP_MUL_INT(x, n) ((x) * (n))
+int add_mixed(int x, int n)
+{
+    return x + n * F;
+}
 
-/* Divide x by y */
-#define FP_DIV(x, y) ((int64_t)(x)) * F / (y)
-/* Divide x by n */
-#define FP_DIV_INT(x, n) ((x) / (n))
+int sub_mixed(int x, int n)
+{
+    return x - n * F;
+}
+
+int mult_fp(int x, int y)
+{
+    return ((int64_t)x) * y / F;
+}
+
+int mult_mixed(int x, int n)
+{
+    return x * n;
+}
+
+int div_fp(int x, int y)
+{
+    return ((int64_t)x) * F / y;
+}
+
+int div_mixed(int x, int n)
+{
+    return x / n;
+}
