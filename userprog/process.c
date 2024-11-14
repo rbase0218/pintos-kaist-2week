@@ -430,6 +430,7 @@ load(const char *file_name, struct intr_frame *if_)
 	}
 
 	/* Set up stack. */
+	// 한비 퀸
 	if (!setup_stack(if_))
 		goto done;
 
