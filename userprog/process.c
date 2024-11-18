@@ -40,7 +40,7 @@ process_init(void)
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
 // Init 단계에서 호출되는 함수
-// 새로운 프로세스를 생성한다. Daemon 
+// 새로운 프로세스를 생성한다. Daemon
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
@@ -54,10 +54,10 @@ tid_t process_create_initd(const char *file_name)
 	strlcpy(fn_copy, file_name, PGSIZE);
 
 	char *savePtr;
-    char *name;
+	char *name;
 	// ⭐ 이 곳에서 'args-single'의 이름만 가져온 사유는 다음과 같다.
 	//     - 프로세스의 이름은 명확해야한다. onearg는 인자값이기 때문에 제외하는 것이 올바르다는 판단.
-    name = strtok_r(file_name, " ", &savePtr);
+	name = strtok_r(file_name, " ", &savePtr);
 
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create(name, PRI_DEFAULT, initd, fn_copy);
@@ -182,13 +182,6 @@ int process_exec(void *f_name)
 	char *file_name = f_name;
 	bool success;
 
-	msg("Process - EXEC  : %s", f_name);
-
-	// 1. 인자를 분리해야 한다.
-	// Argc와 Argv를 생각해보자.
-	int num = 0;
-	char** argv;
-	
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -365,7 +358,16 @@ load(const char *file_name, struct intr_frame *if_)
 	bool success = false;
 	int i;
 
+	// argc & argv
+	char **argv = palloc_get_page(0);
+	int argc = 0;
+
+	// Parsing
+	split_argument(file_name, &argc, argv);
+
 	/* Allocate and activate page directory. */
+	// 프로세스의 페이지 테이블을 설정한다.
+	// Load 함수는 Kernel의 영역.
 	t->pml4 = pml4_create();
 	if (t->pml4 == NULL)
 		goto done;
@@ -452,8 +454,8 @@ load(const char *file_name, struct intr_frame *if_)
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
-	/* TODO: Your code goes here.
-	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	// Stack에 값 추가하기.
+	argument_stack(argv, argc, if_);
 
 	success = true;
 
@@ -461,6 +463,66 @@ done:
 	/* We arrive here whether the load is successful or not. */
 	file_close(file);
 	return success;
+}
+
+void split_argument(char *data, int *argc, char **argv)
+{
+	char *token;
+	char *save_ptr;
+	for (token = strtok_r(data, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
+	{
+		argv[(*argc)++] = token;
+		// printf("argv[%d]: %s\n", (*argc)-1, argv[(*argc)-1]);
+	}
+}
+
+void argument_stack(char **argv, int argc, struct intr_frame *if_) {
+    uint64_t *rsp = (uint64_t *)if_->rsp;
+    char *arg_addresses[argc];
+
+    /* 1. Place the words at the top of the stack */
+    // 문자열들을 스택 상위에 넣기
+    for (int i = 0; i < argc; i++) {
+        size_t len = strlen(argv[i]) + 1;  // +1 for null terminator
+        rsp = (uint64_t *)((uint64_t)rsp - len);
+        memcpy(rsp, argv[i], len);
+        arg_addresses[i] = (char *)rsp;
+    }
+
+    /* 2. Word align to multiple of 8 */
+    rsp = (uint64_t *)((uint64_t)rsp & ~7);
+
+    /* 3. Push argv[argc] null sentinel */
+    rsp--;
+    *rsp = 0;
+
+    /* 4. Push addresses of strings in right-to-left order */
+    // argv[n-1] to argv[0]
+    for (int i = argc - 1; i >= 0; i--) {
+        rsp--;
+        *rsp = (uint64_t)arg_addresses[i];
+    }
+
+    /* Store the address of argv[0] */
+    const char *argv_0_addr = (const char *)*rsp;
+
+    /* 5. Push argc */
+    rsp--;
+    *rsp = argc;
+
+    /* 6. Push fake return address */
+    rsp--;
+    *rsp = 0;
+
+    /* 7. Set up stack pointer */
+    if_->rsp = (uintptr_t)rsp;
+
+    /* 8. Set up arguments for main() */
+    if_->R.rdi = argc;
+    if_->R.rsi = (uint64_t)argv_0_addr;
+
+    // For debugging
+    hex_dump(if_->rsp, (void *)if_->rsp, USER_STACK - if_->rsp, true);
 }
 
 /* Checks whether PHDR describes a valid, loadable segment in
