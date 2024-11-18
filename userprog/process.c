@@ -55,10 +55,11 @@ tid_t process_create_initd(const char *file_name)
 
 	char *savePtr;
     char *name;
+	// ⭐ 이 곳에서 'args-single'의 이름만 가져온 사유는 다음과 같다.
+	//     - 프로세스의 이름은 명확해야한다. onearg는 인자값이기 때문에 제외하는 것이 올바르다는 판단.
     name = strtok_r(file_name, " ", &savePtr);
 
 	/* Create a new thread to execute FILE_NAME. */
-	// file_name 원본을 넘겨도 상관 없을 것 같은데?
 	tid = thread_create(name, PRI_DEFAULT, initd, fn_copy);
 
 	if (tid == TID_ERROR)
