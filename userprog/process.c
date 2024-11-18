@@ -39,6 +39,8 @@ process_init(void)
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
+// Init 단계에서 호출되는 함수
+// 새로운 프로세스를 생성한다. Daemon 
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
@@ -51,10 +53,17 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
+	char *savePtr;
+    char *name;
+    name = strtok_r(file_name, " ", &savePtr);
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+	// file_name 원본을 넘겨도 상관 없을 것 같은데?
+	tid = thread_create(name, PRI_DEFAULT, initd, fn_copy);
+
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
+
 	return tid;
 }
 
@@ -65,7 +74,6 @@ initd(void *f_name)
 #ifdef VM
 	supplemental_page_table_init(&thread_current()->spt);
 #endif
-
 	process_init();
 
 	if (process_exec(f_name) < 0)
@@ -167,13 +175,19 @@ error:
  * Returns -1 on fail. */
 // 설명 : 현재 실행되고 있는 Context를 인자(f_name)로 전환한다.
 // 반환 값 : 실패시 -1을 반환한다.
+// f_name : args-single
 int process_exec(void *f_name)
 {
 	char *file_name = f_name;
 	bool success;
 
-	msg("⭐ %s\n", f_name);
+	msg("Process - EXEC  : %s", f_name);
 
+	// 1. 인자를 분리해야 한다.
+	// Argc와 Argv를 생각해보자.
+	int num = 0;
+	char** argv;
+	
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -219,6 +233,7 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	thread_sleep(1000);
 	return -1;
 }
 
