@@ -1,0 +1,8 @@
+cd build && make all
+make[1]: Entering directory '/home/ubuntu/Jungle/pintos-kaist-2week/userprog/build'
+gcc -g -msoft-float -O0 -fno-omit-frame-pointer -mno-red-zone -mcmodel=large -fno-plt -fno-pic -mno-sse -fno-stack-protector  -fno-stack-protector -Wno-builtin-declaration-mismatch -nostdlib -static -Wl,-T,../../lib/user/user.lds tests/userprog/multi-recurse.o tests/lib.o lib/user/entry.o libc.a -o tests/userprog/multi-recurse
+/usr/bin/ld: tests/lib.o:/home/ubuntu/Jungle/pintos-kaist-2week/userprog/build/../../tests/lib.c:8: multiple definition of `test_name'; tests/userprog/multi-recurse.o:/home/ubuntu/Jungle/pintos-kaist-2week/userprog/build/../../tests/userprog/multi-recurse.c:10: first defined here
+collect2: error: ld returned 1 exit status
+make[1]: *** [../../Makefile.userprog:40: tests/userprog/multi-recurse] Error 1
+make[1]: Leaving directory '/home/ubuntu/Jungle/pintos-kaist-2week/userprog/build'
+make: *** [../Makefile.kernel:10: all] Error 2

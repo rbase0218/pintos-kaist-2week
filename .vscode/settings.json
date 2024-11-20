@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
     "files.associations": {
         "*.inc": "c"
     }
+=======
+    "makefile.configureOnOpen": false
+>>>>>>> ec8640e8fcd3d74595aed7f9a5c3b3df381ed5a0
 }
