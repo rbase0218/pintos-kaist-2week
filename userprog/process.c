@@ -254,8 +254,7 @@ error:
 // 반환 값 : 실패시 -1을 반환한다.
 // Args-Single -> 요고 기준이야~~~
 // 'args-single onearg'
-
-int lo(void *f_name)
+int process_exec(void *f_name)
 {
 	char *file_name = f_name;
 	bool success;
